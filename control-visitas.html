@@ -132,6 +132,13 @@ html,body{height:100%;overscroll-behavior:none;background:var(--bg);color:var(--
 .obs-label{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--warn);margin-bottom:6px;display:flex;align-items:center;gap:6px;font-weight:700}
 .obs-ta{width:100%;padding:10px 12px;background:var(--bg);border:1px solid rgba(255,215,0,.35);border-radius:var(--rs);color:var(--text);font-family:var(--fb);font-size:14px;outline:none;resize:none;min-height:80px;line-height:1.5}
 .obs-ta:focus{border-color:var(--warn)}.obs-ta::placeholder{color:var(--muted)}
+
+.veh-box{background:rgba(0,119,255,.06);border:1px solid rgba(0,119,255,.3);border-radius:var(--r);padding:12px;margin-bottom:13px}
+.veh-title{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:#60aaff;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.veh-saved{background:rgba(0,119,255,.1);border-radius:var(--rs);padding:7px 10px;font-size:12px;color:var(--text2);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.veh-saved strong{color:var(--text)}
+.fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+
 .fg{margin-bottom:12px}
 .fl{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);font-weight:700;margin-bottom:5px;display:block}
 .fi{width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-family:var(--fb);font-size:14px;outline:none;-webkit-appearance:none}
@@ -210,9 +217,13 @@ html,body{height:100%;overscroll-behavior:none;background:var(--bg);color:var(--
         <div class="muted mt8" id="ec" style="font-weight:600"></div>
       </div>
       <div class="eopt" onclick="doExportPDF()"><div class="eico pdf">📄</div><div class="einfo"><h3>Reporte PDF</h3><p>PDF con foto, datos y observaciones de cada visita. No editable.</p></div></div>
-      <div class="eopt" onclick="doExportCSV()"><div class="eico prt">📊</div><div class="einfo"><h3>Excel / CSV</h3><p>Planilla editable con todos los datos para análisis.</p></div></div>
+
       <div class="eopt" onclick="limpiarViejos()" style="border-color:rgba(255,71,87,.3)"><div class="eico" style="background:rgba(255,71,87,.15)">🗑️</div><div class="einfo"><h3 style="color:#ff4757">Limpiar registros viejos</h3><p>Elimina registros de más de 7 días para liberar espacio. Exportá primero el PDF.</p></div></div>
-      <div class="info-box"><div class="ct">ℹ️ DATOS INCLUIDOS</div><div id="cols"></div></div>
+      <div class="info-box"><div class="ct">ℹ️ EL PDF INCLUYE</div><div id="cols"></div></div>
+      <div class="info-box" style="background:rgba(0,212,170,.05);border-color:rgba(0,212,170,.2)">
+        <div class="ct" style="font-size:13px;color:var(--accent2)">💾 BACKUP AUTOMÁTICO</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7">Cada vez que abrís la app, los registros de más de 7 días se guardan automáticamente como Excel en tu carpeta <strong>Descargas</strong> y se eliminan del celular.</div>
+      </div>
     </div>
   </div>
 </div>
@@ -248,9 +259,23 @@ html,body{height:100%;overscroll-behavior:none;background:var(--bg);color:var(--
     <div class="card" style="background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.3);margin-bottom:13px">
       <div class="fb2"><span style="color:var(--text2);font-weight:600;font-size:13px">Hora de entrada</span><span style="font-family:var(--fm);color:var(--accent);font-size:15px;font-weight:700" id="conf-time"></span></div>
     </div>
+    <!-- VEHÍCULO -->
+    <div class="veh-box">
+      <div class="veh-title">🚗 Vehículo <span style="color:var(--muted);font-size:10px;font-weight:500">(se guarda para próximas visitas)</span></div>
+      <div class="veh-saved hidden" id="veh-saved-info"></div>
+      <div class="fr3">
+        <div><label class="fl">Patente</label><input class="fi" id="veh-patente" placeholder="ABC123" style="text-transform:uppercase"/></div>
+        <div><label class="fl">Marca</label><input class="fi" id="veh-marca" placeholder="Toyota"/></div>
+        <div><label class="fl">Color</label><input class="fi" id="veh-color" placeholder="Rojo"/></div>
+      </div>
+      <div class="fr2" style="margin-top:8px">
+        <div><label class="fl" style="color:var(--warn)">📅 Venc. Seguro</label><input class="fi" type="date" id="veh-seguro" style="border-color:rgba(255,215,0,.3)"/></div>
+        <div style="display:flex;align-items:flex-end"><div id="seguro-status" style="font-size:12px;padding:10px 0;font-weight:600"></div></div>
+      </div>
+    </div>
     <div style="margin-bottom:14px">
       <div class="obs-label">📝 Observaciones <span style="color:var(--muted);font-size:10px;font-weight:500">(opcional)</span></div>
-      <textarea class="obs-ta" id="conf-obs" placeholder="Ej: Viene a reunión con RRHH, vehículo patente ABC123..."></textarea>
+      <textarea class="obs-ta" id="conf-obs" placeholder="Ej: Viene a reunión con RRHH..."></textarea>
     </div>
     <button class="bp" onclick="regEntry()">✅ REGISTRAR ENTRADA</button>
     <button class="bo mt8" onclick="closeM('mod-confirm')">Cancelar</button>
@@ -541,17 +566,89 @@ function regAutoExit(){
 }
 
 let pendingData=null;
+// ── DB VEHÍCULOS (guardado por DNI) ──
+const loadVehiculos=()=>{try{return JSON.parse(localStorage.getItem('vreg_vehs')||'{}')}catch{return{}}};
+const saveVehiculos=v=>{try{localStorage.setItem('vreg_vehs',JSON.stringify(v))}catch(e){console.warn('vehs full',e)}};
+
 function openConfirm(){
   $('conf-prev').innerHTML=dniHTML(pendingData);
   $('conf-time').textContent=fmtDT(new Date());
   $('conf-obs').value='';
+  // Autocompletar vehículo si existe para este DNI
+  const vehs=loadVehiculos();
+  const veh=vehs[pendingData.dni]||{};
+  $('veh-patente').value=veh.patente||'';
+  $('veh-marca').value=veh.marca||'';
+  $('veh-color').value=veh.color||'';
+  $('veh-seguro').value=veh.seguro||'';
+  // Verificar estado del seguro
+  const statusEl=$('seguro-status');
+  if(veh.seguro){
+    const hoy=new Date(); hoy.setHours(0,0,0,0);
+    const venc=new Date(veh.seguro+'T00:00:00');
+    const diff=Math.round((venc-hoy)/(86400000));
+    if(diff<0){
+      statusEl.innerHTML='<span style="color:var(--danger)">❌ VENCIDO hace '+Math.abs(diff)+' día'+(Math.abs(diff)!==1?'s':'')+'</span>';
+    } else if(diff===0){
+      statusEl.innerHTML='<span style="color:var(--danger)">⚠️ Vence HOY</span>';
+    } else if(diff<=15){
+      statusEl.innerHTML='<span style="color:var(--warn)">⚠️ Vence en '+diff+' día'+(diff!==1?'s':'')+'</span>';
+    } else {
+      statusEl.innerHTML='<span style="color:var(--accent)">✅ Vigente ('+diff+' días)</span>';
+    }
+  } else {
+    statusEl.innerHTML='';
+  }
+  // Mostrar banner si ya había vehículo guardado
+  const info=$('veh-saved-info');
+  if(veh.patente){
+    info.classList.remove('hidden');
+    info.innerHTML='🔄 <strong>Vehículo anterior:</strong> '+veh.patente+(veh.marca?' · '+veh.marca:'')+(veh.color?' · '+veh.color:'')+'<br/><span style="font-size:10px;color:var(--muted)">Podés modificarlo si ingresa con otro vehículo</span>';
+  } else {
+    info.classList.add('hidden');
+  }
   $('mod-confirm').classList.remove('hidden');
 }
 function regEntry(){
   try{
     const obs=($("conf-obs").value||"").trim();
+    const patente=($('veh-patente').value||'').trim().toUpperCase();
+    const marca=($('veh-marca').value||'').trim();
+    const color=($('veh-color').value||'').trim();
+    const seguro=($('veh-seguro').value||'').trim();
+    // Guardar vehículo asociado al DNI si se ingresó algún dato
+    if(patente||marca||color||seguro){
+      const vehs=loadVehiculos();
+      vehs[pendingData.dni]={patente,marca,color,seguro};
+      saveVehiculos(vehs);
+    }
+    // Verificar seguro vencido ANTES de registrar
+    if(seguro){
+      const hoy=new Date(); hoy.setHours(0,0,0,0);
+      const venc=new Date(seguro+'T00:00:00');
+      const diff=Math.round((venc-hoy)/86400000);
+      if(diff<0){
+        const ok=confirm('⚠️ SEGURO VENCIDO\n\nEl seguro del vehículo '+patente+' venció hace '+Math.abs(diff)+' día'+(Math.abs(diff)!==1?'s':'')+'.\n\nSi ya lo renovaste, actualizá la fecha en el campo "Venc. Seguro".\n\n¿Registrar igualmente la entrada?');
+        if(!ok){closeM("mod-confirm");return;}
+      }
+    }
     const db=loadDB();
-    const nueva={id:uid(),apellido:(pendingData.apellido||""),nombre:(pendingData.nombre||""),dni:(pendingData.dni||""),sexo:(pendingData.sexo||"M"),fechaNac:(pendingData.fechaNac||""),domicilio:(pendingData.domicilio||""),foto:(pendingData.foto||null),entrada:new Date().toISOString(),salida:null,obsEntrada:obs,obsSalida:""};
+    const nueva={
+      id:uid(),
+      apellido:(pendingData.apellido||""),
+      nombre:(pendingData.nombre||""),
+      dni:(pendingData.dni||""),
+      sexo:(pendingData.sexo||"M"),
+      fechaNac:(pendingData.fechaNac||""),
+      domicilio:(pendingData.domicilio||""),
+      foto:(pendingData.foto||null),
+      entrada:new Date().toISOString(),
+      salida:null,
+      obsEntrada:obs,
+      obsSalida:"",
+      vehiculo:patente?(patente+(marca?' '+marca:'')+(color?' '+color:'')):'',
+      seguroVto:seguro||'',
+    };
     db.push(nueva);
     saveDB(db);
     closeM("mod-confirm");
@@ -591,6 +688,54 @@ function confirmManual(){
 let filterMode='all';
 $('hdr-date').textContent='Control de acceso · '+fmtDate(new Date());
 renderCols();updExp();renderAll();
+// ── LIMPIEZA AUTOMÁTICA 7 DÍAS AL INICIO ──
+let toastT;
+// Limpieza automática: borra registros de más de 7 días
+// Guarda backup silencioso en Excel antes de borrar
+function autolimpiar(){
+  const hace7=new Date(Date.now()-7*86400000).toISOString().slice(0,10);
+  const db=loadDB();
+  const viejos=db.filter(v=>v.entrada&&v.entrada.slice(0,10)<hace7);
+  if(viejos.length===0)return;
+  // Backup silencioso en CSV/Excel
+  const desde=viejos[0].entrada.slice(0,10);
+  const hasta=viejos[viejos.length-1].entrada.slice(0,10);
+  backupCSV(viejos, desde, hasta);
+  // Borrar viejos
+  const nuevos=db.filter(v=>!v.entrada||v.entrada.slice(0,10)>=hace7);
+  const fotos=loadFotos();
+  const idsActivos=new Set(nuevos.map(v=>v.id));
+  Object.keys(fotos).forEach(k=>{if(!idsActivos.has(k))delete fotos[k];});
+  saveFotos(fotos);
+  localStorage.setItem("vreg10",JSON.stringify(nuevos));
+  // Solo un toast discreto
+  setTimeout(()=>showToast('✅ Copia de seguridad realizada'),1000);
+}
+
+function backupCSV(db, desde, hasta){
+  try{
+    const cols=['DNI','Apellido','Nombre','Sexo','Fecha Nac.','Domicilio','Vehículo','Venc. Seguro','Entrada Fecha','Entrada Hora','Salida Fecha','Salida Hora','Duración (min)','Obs. Entrada','Obs. Salida'];
+    const rows=db.map(v=>{
+      const e=v.entrada?new Date(v.entrada):null,s=v.salida?new Date(v.salida):null;
+      return[v.dni,v.apellido,v.nombre,v.sexo==='M'?'Masculino':'Femenino',
+        v.fechaNac?fmtDate(v.fechaNac):'',v.domicilio||'',v.vehiculo||'',v.seguroVto?fmtDate(v.seguroVto+'T00:00:00'):'',
+        e?fmtDate(e):'',e?fmtTime(e):'',
+        s?fmtDate(s):'En visita',s?fmtTime(s):'',
+        (e&&s)?Math.round((s-e)/60000):'',
+        v.obsEntrada||'',v.obsSalida||''];
+    });
+    const csv=[cols,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
+    a.download='backup_visitas_'+desde+'_al_'+hasta+'.csv';
+    a.style.display='none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  }catch(e){console.error('backup error:',e);}
+}
+autolimpiar();
 
 function showTab(name,btn){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -637,13 +782,14 @@ function renderSearch(){
       <div class="rc">
         <div class="rtop">
           <div class="rav">${v.foto?`<img src="${v.foto}"/>`:'<span>'+initials(v.apellido+' '+v.nombre)+'</span>'}</div>
-          <div style="flex:1;min-width:0"><div class="rname">${v.apellido} ${v.nombre}</div><div class="rdni">DNI ${v.dni}${v.sexo?' · '+(v.sexo==='M'?'♂':'♀'):''}</div>${v.domicilio?`<div class="raddr">${v.domicilio}</div>`:''}</div>
+          <div style="flex:1;min-width:0"><div class="rname">${v.apellido} ${v.nombre}</div><div class="rdni">DNI ${v.dni}${v.sexo?' · '+(v.sexo==='M'?'♂':'♀'):''}</div>${v.vehiculo?`<div style="font-size:11px;color:#60aaff;margin-top:2px;font-weight:600">🚗 ${v.vehiculo}${(()=>{if(!v.seguroVto)return'';const h=new Date();h.setHours(0,0,0,0);const d=Math.round((new Date(v.seguroVto+'T00:00:00')-h)/86400000);return d<0?' <span style="color:var(--danger)">❌ Seg. VENCIDO</span>':d<=15?' <span style="color:var(--warn)">⚠️ Seg. vence en '+d+'d</span>':'';})()}</div>`:''} ${v.domicilio?`<div class="raddr">${v.domicilio}</div>`:''}</div>
           <span class="badge ${v.salida?'bout':'bin'}">${v.salida?'Salida':'Activo'}</span>
         </div>
         <div class="rtimes">
           <div class="rtb"><div class="rtl">▼ Entrada</div><div class="rtv in">${fmtDate(v.entrada)}</div><div class="rtv in">${fmtTime(v.entrada)}</div></div>
           <div class="rtb"><div class="rtl">▲ Salida</div>${v.salida?`<div class="rtv out">${fmtDate(v.salida)}</div><div class="rtv out">${fmtTime(v.salida)}</div>`:`<div class="rtv pend">Pendiente</div>`}</div>
         </div>
+        ${v.vehiculo?`<div class="obs-box" style="border-color:#60aaff">🚗 Vehículo: <span>${v.vehiculo}</span></div>`:''}
         ${v.obsEntrada?`<div class="obs-box">📝 Entrada: <span>${v.obsEntrada}</span></div>`:''}
         ${v.obsSalida?`<div class="obs-box" style="border-color:var(--danger)">📝 Salida: <span>${v.obsSalida}</span></div>`:''}
         <div class="racts">
@@ -654,67 +800,100 @@ function renderSearch(){
 }
 function delRec(id){if(!confirm('¿Eliminar?'))return;saveDB(loadDB().filter(v=>v.id!==id));renderAll();renderSearch();showToast('🗑️ Eliminado');}
 
-// ── EXPORT PDF ──
+// ── GENERADOR HTML COMPARTIDO ──
+function generarHTMLReporte(db, titulo, subtitulo){
+  const filas=db.map(v=>{
+    const e=v.entrada?new Date(v.entrada):null,s=v.salida?new Date(v.salida):null;
+    const dur=(e&&s)?Math.round((s-e)/60000)+'min':'';
+    const fotoTag=v.foto
+      ?'<img src="'+v.foto+'" style="width:48px;height:48px;object-fit:cover;border-radius:4px;border:1px solid #ccc"/>'
+      :'<div style="width:48px;height:48px;background:#eee;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px">&#128219;</div>';
+    return '<tr>'
+      +'<td style="text-align:center;vertical-align:middle;padding:5px">'+fotoTag+'</td>'
+      +'<td style="padding:5px;vertical-align:middle"><strong>'+v.apellido+'</strong><br/>'+v.nombre+'<br/><span style="font-family:monospace;font-size:11px;color:#555">DNI '+v.dni+'</span><br/><span style="font-size:10px;color:#777">'+(v.fechaNac?fmtDate(v.fechaNac):'')+'</span></td>'
+      +'<td style="padding:5px;vertical-align:middle;font-size:12px;color:#1a5276">'+(v.vehiculo?'🚗 '+v.vehiculo:'')+(v.seguroVto?'<br/><span style="font-size:10px;color:'+(()=>{const h=new Date();h.setHours(0,0,0,0);const d=Math.round((new Date(v.seguroVto+'T00:00:00')-h)/86400000);return d<0?'#e74c3c':d<=15?'#e67e22':'#27ae60';})()+'">📅 Seg: '+fmtDate(v.seguroVto)+'</span>':'')+'</td>'
+      +'<td style="text-align:center;vertical-align:middle;padding:5px;font-size:12px">'+(e?fmtDate(e):'')+'<br/><strong style="color:#007a5e">'+(e?fmtTime(e):'')+'</strong></td>'
+      +'<td style="text-align:center;vertical-align:middle;padding:5px;font-size:12px">'+(s?fmtDate(s):'<span style="color:#e74c3c">En planta</span>')+'<br/><strong style="color:#e74c3c">'+(s?fmtTime(s):'')+'</strong></td>'
+      +'<td style="text-align:center;vertical-align:middle;padding:5px;font-size:12px;color:#777">'+dur+'</td>'
+      +'<td style="padding:5px;vertical-align:middle;font-size:11px;color:#555">'+(v.obsEntrada?'<span style="color:#b8860b">Obs entrada: '+v.obsEntrada+'</span>':'')+(v.obsSalida?'<br/><span style="color:#c0392b">Obs salida: '+v.obsSalida+'</span>':'')+'</td>'
+      +'</tr>';
+  }).join('');
+  const anio=new Date().getFullYear();
+  const generado=fmtDT(new Date());
+  const cant=db.length;
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"/>'
+    +'<title>'+titulo+'</title>'
+    +'<style>'
+    +'@media print{@page{size:A4 landscape;margin:10mm}body{margin:0}}'
+    +'body{font-family:Arial,sans-serif;margin:15px;color:#222;font-size:13px}'
+    +'h1{color:#007a5e;font-size:20px;margin-bottom:3px}'
+    +'.sub{color:#666;font-size:12px;margin-bottom:12px}'
+    +'table{width:100%;border-collapse:collapse;font-size:12px}'
+    +'th{background:#007a5e;color:#fff;padding:7px 5px;text-align:left;font-size:11px}'
+    +'td{border-bottom:1px solid #ddd;vertical-align:middle}'
+    +'tr:nth-child(even){background:#f5faf8}'
+    +'.footer{margin-top:12px;font-size:10px;color:#aaa;text-align:right;border-top:1px solid #ddd;padding-top:6px}'
+    +'.pbtn{position:fixed;bottom:20px;right:20px;padding:14px 26px;background:#007a5e;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25)}'
+    +'@media print{.pbtn{display:none}}'
+    +'</style></head><body>'
+    +'<h1>&#127970; '+titulo+'</h1>'
+    +'<div class="sub">'+subtitulo+' &middot; '+cant+' registro'+(cant!==1?'s':'')+' &middot; Generado el '+generado+'</div>'
+    +'<table>'
+    +'<thead><tr><th style="width:55px">Foto</th><th>Persona / DNI</th><th style="width:80px">Veh&iacute;culo</th><th style="width:90px">Entrada</th><th style="width:90px">Salida</th><th style="width:60px">Duraci&oacute;n</th><th>Observaciones</th></tr></thead>'
+    +'<tbody>'+filas+'</tbody>'
+    +'</table>'
+    +'<div class="footer">VisitasReg &copy; '+anio+' &mdash; Control de acceso</div>'
+    +'<button class="pbtn" onclick="window.print()">&#128438; Guardar como PDF / Imprimir</button>'
+    +'</body></html>';
+}
+
+function abrirReporte(html, nombreArchivo){
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const win=window.open(url,'_blank');
+  if(!win||win.closed){
+    // Popup bloqueado: descargar directo
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=nombreArchivo||('reporte_'+todayStr()+'.html');
+    a.click();
+    showToast('📄 Descargado en Descargas · Abrilo y tocá Imprimir para PDF');
+  } else {
+    // Ventana abierta: disparar print automáticamente
+    win.addEventListener('load',()=>setTimeout(()=>win.print(),800));
+    showToast('📄 Reporte abierto · Guardalo como PDF con Imprimir');
+  }
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+}
+
+// ── EXPORT PDF (manual desde Exportar) ──
 function doExportPDF(){
   const from=$('ef').value,to=$('et').value;
   const db=getDBWithFotos().filter(v=>{const d=v.entrada?v.entrada.slice(0,10):'';return(!from||d>=from)&&(!to||d<=to)});
   if(db.length===0){showToast('No hay registros en el rango');return;}
+  const periodo=from||to?('Período: '+(from?fmtDate(from+'T00:00:00'):'inicio')+' al '+(to?fmtDate(to+'T00:00:00'):'hoy')):'Todos los registros';
+  const html=generarHTMLReporte(db,'REGISTRO DE VISITAS',periodo);
+  abrirReporte(html,'visitas_'+todayStr()+'.html');
+}
 
-  const filas=db.map(v=>{
-    const e=v.entrada?new Date(v.entrada):null,s=v.salida?new Date(v.salida):null;
-    const dur=(e&&s)?Math.round((s-e)/60000)+'min':'';
-    const fotoTag=v.foto?`<img src="${v.foto}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;border:1px solid #ccc"/>`:'<div style="width:50px;height:50px;background:#eee;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">🪪</div>';
-    return`<tr>
-      <td style="text-align:center;vertical-align:middle;padding:6px">${fotoTag}</td>
-      <td style="padding:6px;vertical-align:middle"><strong>${v.apellido}</strong><br/>${v.nombre}<br/><span style="font-family:monospace;font-size:11px;color:#555">DNI ${v.dni}</span><br/><span style="font-size:10px;color:#777">${v.fechaNac?fmtDate(v.fechaNac):''}</span></td>
-      <td style="text-align:center;vertical-align:middle;padding:6px;font-size:12px">${e?fmtDate(e):''}<br/><strong style="color:#007a5e">${e?fmtTime(e):''}</strong></td>
-      <td style="text-align:center;vertical-align:middle;padding:6px;font-size:12px">${s?fmtDate(s):'<span style="color:#e74c3c">En planta</span>'}<br/><strong style="color:#e74c3c">${s?fmtTime(s):''}</strong></td>
-      <td style="text-align:center;vertical-align:middle;padding:6px;font-size:12px;color:#777">${dur}</td>
-      <td style="padding:6px;vertical-align:middle;font-size:11px;color:#555">${v.obsEntrada?'<span style="color:#b8860b">📝 '+v.obsEntrada+'</span>':''}${v.obsSalida?'<br/><span style="color:#c0392b">📝 '+v.obsSalida+'</span>':''}</td>
-    </tr>`;
-  }).join('');
-
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"/>
-  <title>Reporte de Visitas</title>
-  <style>
-    body{font-family:Arial,sans-serif;margin:20px;color:#222}
-    h1{color:#007a5e;font-size:22px;margin-bottom:4px}
-    .sub{color:#666;font-size:13px;margin-bottom:16px}
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    th{background:#007a5e;color:#fff;padding:8px 6px;text-align:left;font-size:12px}
-    td{border-bottom:1px solid #ddd}
-    tr:nth-child(even){background:#f9f9f9}
-    tr:hover{background:#f0faf7}
-    .footer{margin-top:16px;font-size:11px;color:#999;text-align:right}
-  </style></head><body>
-  <h1>🏢 REGISTRO DE VISITAS</h1>
-  <div class="sub">Generado el ${fmtDT(new Date())} · ${db.length} registro${db.length!==1?'s':''} ${from||to?'· Período: '+(from?fmtDate(from+'T00:00:00'):'')+' – '+(to?fmtDate(to+'T00:00:00'):'hoy'):''}</div>
-  <table>
-    <thead><tr><th>Foto</th><th>Persona</th><th>Entrada</th><th>Salida</th><th>Duración</th><th>Observaciones</th></tr></thead>
-    <tbody>${filas}</tbody>
-  </table>
-  <div class="footer">VisitasReg © ${new Date().getFullYear()} — Documento generado automáticamente</div>
-  </body></html>`;
-
-  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
-  const win=window.open(url,'_blank');
-  if(win){
-    win.onload=()=>{
-      setTimeout(()=>{win.print();},500);
-    };
-  }
-  showToast('📄 Abriendo reporte para imprimir/guardar PDF');
+// ── EXPORT PDF AUTOMÁTICO (llamado por autolimpiar) ──
+function exportarPDFRango(desde,hasta,db){
+  if(!db||db.length===0)return;
+  const fotos=loadFotos();
+  const dbConFotos=db.map(v=>({...v,foto:fotos[v.id]||null}));
+  const subtitulo='Período: '+fmtDate(desde+'T00:00:00')+' al '+fmtDate(hasta+'T00:00:00')+' (archivo automático)';
+  const html=generarHTMLReporte(dbConFotos,'VISITAS ARCHIVADAS',subtitulo);
+  abrirReporte(html,'visitas_archivo_'+desde+'_al_'+hasta+'.html');
 }
 
 // ── EXPORT CSV ──
 function doExportCSV(){
   const from=$('ef').value,to=$('et').value;
   const db=getDBWithFotos().filter(v=>{const d=v.entrada?v.entrada.slice(0,10):'';return(!from||d>=from)&&(!to||d<=to)});
-  const cols=['DNI','Apellido','Nombre','Sexo','Fecha Nac.','Domicilio','Entrada Fecha','Entrada Hora','Salida Fecha','Salida Hora','Duración (min)','Obs. Entrada','Obs. Salida'];
+  const cols=['DNI','Apellido','Nombre','Sexo','Fecha Nac.','Domicilio','Vehículo','Venc. Seguro','Entrada Fecha','Entrada Hora','Salida Fecha','Salida Hora','Duración (min)','Obs. Entrada','Obs. Salida'];
   const rows=db.map(v=>{
     const e=v.entrada?new Date(v.entrada):null,s=v.salida?new Date(v.salida):null;
-    return[v.dni,v.apellido,v.nombre,v.sexo==='M'?'Masculino':'Femenino',v.fechaNac?fmtDate(v.fechaNac):'',v.domicilio||'',e?fmtDate(e):'',e?fmtTime(e):'',s?fmtDate(s):'En visita',s?fmtTime(s):'',(e&&s)?Math.round((s-e)/60000):'',v.obsEntrada||'',v.obsSalida||''];
+    return[v.dni,v.apellido,v.nombre,v.sexo==='M'?'Masculino':'Femenino',v.fechaNac?fmtDate(v.fechaNac):'',v.domicilio||'',v.vehiculo||'',v.seguroVto?fmtDate(v.seguroVto+'T00:00:00'):'',e?fmtDate(e):'',e?fmtTime(e):'',s?fmtDate(s):'En visita',s?fmtTime(s):'',(e&&s)?Math.round((s-e)/60000):'',v.obsEntrada||'',v.obsSalida||''];
   });
   const csv=[cols,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a=document.createElement('a');
@@ -756,7 +935,6 @@ function dniHTML(d){
   </div>`;
 }
 function closeM(id){$(id).classList.add('hidden');}
-let toastT;
 function showToast(msg){
   let t=document.querySelector('.toast');
   if(!t){t=document.createElement('div');t.className='toast';document.body.appendChild(t);}
